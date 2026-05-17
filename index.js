@@ -56,12 +56,14 @@ const SEND_TYPE_NEW_CANDIDATE = '1004'; // offer
 const SEND_TYPE_NEW_CONNECTION = '1005'; // new connection
 const SEND_TYPE_CONNECTED = '1006'; // new connection
 const SEND_TYPE_NICKNAME_UPDATED = '1007'; // 昵称更新通知
+const SEND_TYPE_CREATE_ROOM_RESULT = '1008'; // 创建房间结果
 
 const RECEIVE_TYPE_NEW_CANDIDATE = '9001'; // offer
 const RECEIVE_TYPE_NEW_CONNECTION = '9002'; // new connection
 const RECEIVE_TYPE_CONNECTED = '9003'; // joined
 const RECEIVE_TYPE_KEEPALIVE = '9999'; // keep-alive
 const RECEIVE_TYPE_UPDATE_NICKNAME = '9004'; // 更新昵称请求
+const RECEIVE_TYPE_CREATE_ROOM = '9005'; // 创建房间请求
 
 // 从room_pwd.json中获取房间密码
 let roomPwd = { };
@@ -78,6 +80,29 @@ try {
 } catch (e) {
   // 没有room_pwd.json文件无需报错，不加载即可
   // console.error('Failed to load room_pwd.json');
+}
+
+let roomPwdConfigPath = null;
+try {
+  const exePath = process.pkg ? path.dirname(process.execPath) : __dirname;
+  roomPwdConfigPath = path.join(exePath, 'room_pwd.json');
+  fs.accessSync(roomPwdConfigPath, fs.constants.R_OK | fs.constants.W_OK);
+} catch (e) {
+  roomPwdConfigPath = path.join(__dirname, 'room_pwd.json');
+}
+
+function saveRoomPwd() {
+  const config = Object.keys(roomPwd).map(roomId => ({
+    roomId,
+    pwd: roomPwd[roomId].pwd,
+    turns: roomPwd[roomId].turns || [],
+    remark: roomPwd[roomId].remark || ''
+  }));
+  try {
+    fs.writeFileSync(roomPwdConfigPath, JSON.stringify(config, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Failed to save room_pwd.json:', e.message);
+  }
 }
 
 wsServer.on('connection', (socket, request) => {
@@ -166,6 +191,26 @@ wsServer.on('connection', (socket, request) => {
       }
       return;
     }
+    if (type === RECEIVE_TYPE_CREATE_ROOM) {
+      const { roomId: newRoomId, pwd: newPwd } = data;
+      if (!newRoomId || newRoomId.length < 2 || newRoomId.length > 32) {
+        socketSend_CreateRoomResult(socket, { success: false, message: '房间号长度需在2-32个字符之间' });
+        return;
+      }
+      if (!newPwd || newPwd.length !== 32) {
+        socketSend_CreateRoomResult(socket, { success: false, message: '密码格式错误' });
+        return;
+      }
+      if (roomPwd[newRoomId]) {
+        socketSend_CreateRoomResult(socket, { success: false, message: '房间号已存在' });
+        return;
+      }
+      roomPwd[newRoomId] = { pwd: newPwd.toLowerCase(), turns: [], remark: '' };
+      saveRoomPwd();
+      console.log(`房间已创建: ${newRoomId} by ${uid}@${ip}`);
+      socketSend_CreateRoomResult(socket, { success: true, roomId: newRoomId });
+      return;
+    }
     
   });
 
@@ -221,4 +266,8 @@ function socketSend_Connected(socket, data) {
 
 function socketSend_NicknameUpdated(socket, data) {
   send(socket, SEND_TYPE_NICKNAME_UPDATED, data);
+}
+
+function socketSend_CreateRoomResult(socket, data) {
+  send(socket, SEND_TYPE_CREATE_ROOM_RESULT, data);
 }

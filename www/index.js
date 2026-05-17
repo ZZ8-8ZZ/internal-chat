@@ -22,30 +22,32 @@ function initPage() {
   }
 
   const roomId = window.location.pathname.split('/')[1];
+  const appContainer = document.querySelector('.app-container');
+  const passwordModal = document.getElementById('passwordModal');
+
   if (roomId) {
     // 如果有roomId，显示密码输入框并隐藏主界面
-    document.querySelector('.left').style.display = 'none';
-    document.querySelector('.right').style.display = 'none';
-    document.getElementById('passwordModal').style.display = 'block';
+    if (appContainer) appContainer.style.display = 'none';
+    if (passwordModal) passwordModal.style.display = 'block';
     
     // 添加回车事件监听
     const passwordInput = document.getElementById('roomPasswordInput');
-    passwordInput.onkeydown = (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        submitRoomPassword();
+    if (passwordInput) {
+      passwordInput.onkeydown = (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          submitRoomPassword();
+        }
+      };
+      // 自动聚焦密码输入框 
+      if (!navigator.userAgent.match(/Android/i) && !navigator.userAgent.match(/iPhone/i) && !navigator.userAgent.match(/iPad/i) && !navigator.userAgent.match(/iPod/i)) {
+        setTimeout(() => passwordInput.focus(), 0);
       }
-    };
-    // 自动聚焦密码输入框 
-    // 判断是否非移动端
-    if (!navigator.userAgent.match(/Android/i) && !navigator.userAgent.match(/iPhone/i) && !navigator.userAgent.match(/iPad/i) && !navigator.userAgent.match(/iPod/i)) {
-      setTimeout(() => passwordInput.focus(), 0);
     }
   } else {
     // 没有roomId，显示主界面
-    document.querySelector('.left').style.display = 'flex';
-    document.querySelector('.right').style.display = 'block';
-    document.getElementById('passwordModal').style.display = 'none';
+    if (appContainer) appContainer.style.display = 'flex';
+    if (passwordModal) passwordModal.style.display = 'none';
     // 连接WebSocket
     connectWebSocket();
   }
@@ -64,9 +66,10 @@ function submitRoomPassword() {
   }
   
   // 隐藏密码输入框，显示主界面
-  document.getElementById('passwordModal').style.display = 'none';
-  document.querySelector('.left').style.display = 'flex';
-  document.querySelector('.right').style.display = 'block';
+  const passwordModal = document.getElementById('passwordModal');
+  if (passwordModal) passwordModal.style.display = 'none';
+  const appContainer = document.querySelector('.app-container');
+  if (appContainer) appContainer.style.display = 'flex';
   
   // 连接WebSocket
   connectWebSocket();
@@ -102,6 +105,11 @@ function connectWebSocket() {
       if (roomId && me.roomId !== roomId) {
         addChatItem('system', '房间密码错误，已切换至内网频道');
         return;
+      }
+      if (me.roomId) {
+        document.getElementById('roomTitle').textContent = `房间: ${me.roomId}`;
+      } else {
+        document.getElementById('roomTitle').textContent = '内网频道';
       }
       if (data.turns && data.turns.length > 0) {
         window.fgdx_configuration.iceServers.push(...data.turns)
@@ -145,6 +153,10 @@ function connectWebSocket() {
       }
       return;
     }
+    if (type === '1008') {
+      handleCreateRoomResult(data);
+      return;
+    }
   }
 
   signalingServer.onerror = (error) => {
@@ -152,11 +164,14 @@ function connectWebSocket() {
     if (error.target.readyState === WebSocket.CLOSED) {
       alert('密码错误或连接失败');
       // 显示密码输入框，隐藏主界面
-      document.querySelector('.left').style.display = 'none';
-      document.querySelector('.right').style.display = 'none';
-      document.getElementById('passwordModal').style.display = 'block';
-      document.getElementById('roomPasswordInput').value = '';
-      document.getElementById('roomPasswordInput').focus();
+      const appContainer = document.querySelector('.app-container');
+      if (appContainer) appContainer.style.display = 'none';
+      const passwordModal = document.getElementById('passwordModal');
+      if (passwordModal) {
+        passwordModal.style.display = 'block';
+        document.getElementById('roomPasswordInput').value = '';
+        document.getElementById('roomPasswordInput').focus();
+      }
     }
   };
 }
@@ -172,11 +187,16 @@ async function copy(e, msg) {
   const currentTarget = e.currentTarget
   function copySuccess() {
     currentTarget.innerHTML = `
-      <svg viewBox="0 0 1024 1024" width="20" height="21"><path d="M912 190h-69.9c-9.8 0-19.1 4.5-25.1 12.2L404.7 724.5L207 474a32 32 0 0 0-25.1-12.2H112c-6.7 0-10.4 7.7-6.3 12.9l273.9 347c12.8 16.2 37.4 16.2 50.3 0l488.4-618.9c4.1-5.1.4-12.8-6.3-12.8z" fill="currentColor"></path></svg>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
     `
     const timer = setTimeout(() => {
       currentTarget.innerHTML = `
-        <svg viewBox="0 0 24 24" width="20" height="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"></path></svg>
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
       `
       clearTimeout(timer)
     }, 1000);
@@ -201,7 +221,8 @@ async function copy(e, msg) {
 function addLinkItem(uid, file) {
   const chatBox = document.querySelector('.chat-wrapper');
   const chatItem = document.createElement('div');
-  chatItem.className = 'chat-item';
+  const isMe = uid === me.id;
+  chatItem.className = `chat-item ${isMe ? 'me' : ''}`;
   
   const user = users.find(u => u.id === uid);
   const displayName = user?.nickname || uid;
@@ -216,18 +237,27 @@ function addLinkItem(uid, file) {
         <img src="${file.url}" alt="${file.name}" />
       </div>
       <button class="copy-btn" onclick="this.parentElement.querySelector('a').click()">
-        <svg viewBox="0 0 24 24" width="20" height="20">
-          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" fill="currentColor"/>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
         </svg>
       </button>
       <a href="${file.url}" download="${file.name}" style="display: none;"></a>
     `;
   } else {
-    contentHtml = `<a class="file" href="${file.url}" download="${file.name}">[文件] ${file.name}</a>`;
+    contentHtml = `
+      <a class="file" href="${file.url}" download="${file.name}">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+          <polyline points="13 2 13 9 20 9"></polyline>
+        </svg>
+        <span>${file.name}</span>
+      </a>`;
   }
   
   chatItem.innerHTML = `
-    <div class="chat-item_user">${uid === me.id ? '（我）': ''}${displayName} :</div>
+    <div class="chat-item_user">${isMe ? '（我）': ''}${displayName}</div>
     <div class="chat-item_content">${contentHtml}</div>
   `;
   
@@ -290,7 +320,7 @@ function addLinkItem(uid, file) {
   }
 }
 
-function addChatItem(uid, message) {
+function addChatItem(uid, message, isBubble = false) {
   // 如果是系统控制消息（以##开头），不显示在聊天记录中
   try {
     if (typeof message === 'string' && message.startsWith('##')) {
@@ -306,41 +336,58 @@ function addChatItem(uid, message) {
 
   const chatBox = document.querySelector('.chat-wrapper');
   const chatItem = document.createElement('div');
-  chatItem.className = 'chat-item';
+  const isMe = uid === me.id;
+  const isSystem = uid === 'system';
+  chatItem.className = `chat-item ${isMe ? 'me' : ''}`;
+  
   const copyText = message;
-  let msg = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // 判断是否url，兼容端口号和带参数的网址
-  if (/(http|https):\/\/[^\s<>"']+/g.test(msg)) {
-    msg = msg.replace(/(http|https):\/\/[^\s<>"']+/g, (url) => {
-      return `<a href="${url}" target="_blank">${url}</a>`;
-    });
+  let msg = message;
+  
+  // 只有非系统消息才进行 HTML 转义和 URL 自动链接
+  if (!isSystem) {
+    msg = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // 判断是否url，兼容端口号和带参数的网址
+    if (/(http|https):\/\/[^\s<>"']+/g.test(msg)) {
+      msg = msg.replace(/(http|https):\/\/[^\s<>"']+/g, (url) => {
+        return `<a href="${url}" target="_blank">${url}</a>`;
+      });
+    }
   }
 
   const user = users.find(u => u.id === uid);
-  const displayName = uid === 'system' ? '系统' : (user?.nickname || uid);
-  const isSystem = uid === 'system';
+  const displayName = isSystem ? '系统' : (user?.nickname || uid);
 
   const copyButton = document.createElement('button')
   copyButton.className = 'copy-btn'
-  copyButton.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" fill="currentColor"></path></svg>'
+  copyButton.innerHTML = `
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>`
   copyButton.onclick = function () {
     copy(event,copyText)
   }
 
-  chatItem.innerHTML = `
-    <div class="chat-item_user ${isSystem ? 'system' : ''}">${!isSystem && uid === me.id ? '（我）': ''}${displayName} :</div>
-    <div class="chat-item_content">
-      <pre>${msg}</pre>
-    </div>
-  `;
-  if (!isSystem) {
+  if (isSystem && !isBubble) {
+    chatItem.innerHTML = `<div class="chat-item_user system">${msg}</div>`;
+  } else {
+    chatItem.innerHTML = `
+      <div class="chat-item_user">${isMe ? '（我）': ''}${displayName}</div>
+      <div class="chat-item_content">
+        <pre>${msg}</pre>
+      </div>
+    `;
     chatItem.querySelector('.chat-item_content').appendChild(copyButton);
   }
+  
   chatBox.appendChild(chatItem);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 function sendMessage(msg) {
-  const message = msg ?? messageInput.value;
+  const messageInput = document.getElementById('messageInput');
+  const message = msg ?? messageInput?.value;
+  if (!message) return;
+  
   addChatItem(me.id, message);
   users.forEach(u => {
     if (u.isMe) {
@@ -348,7 +395,11 @@ function sendMessage(msg) {
     }
     u.sendMessage(message);
   });
-  messageInput.value = '';
+  if (messageInput) {
+    messageInput.value = '';
+    messageInput.style.height = '36px';
+    messageInput.style.overflowY = 'hidden';
+  }
 }
 
 async function sendFile(file) {
@@ -509,20 +560,20 @@ async function joinedConnection(data) {
 function refreshUsersHTML() {
   document.querySelector('#users').innerHTML = users.map(u => {
     const isConnected = u.isMe || u.isConnected();
-    console.log(isConnected, '----');
-    const statusClass = isConnected ? 'connected' : 'disconnected';
-    const statusIcon = isConnected ? 
-      `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>` : 
-      `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 7h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1 0 1.43-.98 2.63-2.31 2.98l1.46 1.46C20.88 15.61 22 13.95 22 12c0-2.76-2.24-5-5-5zm-1 4h-2.19l2 2H16zM2 4.27l3.11 3.11C3.29 8.12 2 9.91 2 12c0 2.76 2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1 0-1.59 1.21-2.9 2.76-3.07L8.73 11H8v2h2.73L13 15.27V17h1.73l4.01 4L20 19.74 3.27 3 2 4.27z"/></svg>`;
-    
     const displayName = u.nickname || u.id;
+    const initial = displayName.charAt(0).toUpperCase();
     
     return `
-      <li>
-        <span class="connection-status ${statusClass}">
-          ${statusIcon}
-        </span>
-        ${displayName}${u.isMe?'（我）':''}
+      <li class="user-item">
+        <div class="user-avatar" style="background-color: ${isConnected ? 'var(--primary)' : 'var(--text-muted)'}">
+          ${initial}
+        </div>
+        <div class="user-info">
+          <div class="user-name">${displayName}${u.isMe ? '（我）' : ''}</div>
+          <div class="user-status" style="font-size: 0.7rem; color: var(--text-muted)">
+            ${isConnected ? '在线' : '离线'}
+          </div>
+        </div>
       </li>
     `;
   }).join('');
@@ -541,6 +592,7 @@ function enterTxt(event) {
 function showUserSelectModal() {
   const modal = document.getElementById('userSelectModal');
   const userList = document.getElementById('userSelectList');
+  if (!modal || !userList) return;
   
   // 清空之前的列表
   userList.innerHTML = '';
@@ -551,10 +603,15 @@ function showUserSelectModal() {
       const item = document.createElement('div');
       item.className = 'user-select-item';
       const displayName = user.nickname || user.id;
+      const initial = displayName.charAt(0).toUpperCase();
+      const isConnected = user.isConnected();
       
       item.innerHTML = `
         <label>
           <input type="checkbox" value="${user.id}">
+          <div class="user-avatar" style="background-color: ${isConnected ? 'var(--primary)' : 'var(--text-muted)'}">
+            ${initial}
+          </div>
           <span>${displayName}</span>
         </label>
       `;
@@ -564,7 +621,14 @@ function showUserSelectModal() {
         const checkbox = item.querySelector('input[type="checkbox"]');
         if (e.target === checkbox) return;
         checkbox.checked = !checkbox.checked;
+        item.classList.toggle('selected', checkbox.checked);
         e.preventDefault();
+      });
+
+      // 监听复选框状态变化以切换选中样式
+      const checkbox = item.querySelector('input[type="checkbox"]');
+      checkbox.addEventListener('change', () => {
+        item.classList.toggle('selected', checkbox.checked);
       });
       
       userList.appendChild(item);
@@ -586,11 +650,14 @@ function cancelSendFile() {
 
 async function confirmSendFile() {
   const modal = document.getElementById('userSelectModal');
+  if (!modal) return;
   const sendButton = modal.querySelector('.modal-footer button:last-child');
   const progressContainer = modal.querySelector('.progress-container');
   const progressBar = modal.querySelector('.progress-bar-inner');
   const progressText = modal.querySelector('.progress-text');
   const userList = document.getElementById('userSelectList');
+  if (!sendButton || !progressContainer || !progressBar || !progressText || !userList) return;
+
   const selectedUsers = Array.from(document.querySelectorAll('#userSelectList input[type="checkbox"]:checked'))
     .map(checkbox => users.find(u => u.id === checkbox.value));
   
@@ -666,23 +733,6 @@ droptarget.addEventListener("dragover", handleEvent);
 droptarget.addEventListener("drop", handleEvent);
 droptarget.addEventListener("dragleave", handleEvent);
 
-document.querySelector('.file-btn').addEventListener('click', async () => {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.onchange = async (e) => {
-    if (e.target.files.length > 0) {
-      await sendFile(e.target.files[0]);
-    }
-  };
-  input.click();
-});
-
-document.querySelector('.send-btn').addEventListener('click', () => {
-  if (messageInput.value.trim()) {  // 只有当消息不为空时才发送
-    sendMessage();
-  }
-});
-
 function showNicknameModal() {
   const modal = document.getElementById('nicknameModal');
   const input = document.getElementById('nicknameInput');
@@ -738,24 +788,73 @@ function saveNickname() {
   closeNicknameModal();
 }
 
-// ... 添加昵称按钮事件监听
-document.querySelector('.nickname-btn').addEventListener('click', showNicknameModal);
-
-function toggleUsersList() {
-  document.body.classList.toggle('show-users');
-}
-
 // Add event listener for toggle button and overlay
 document.addEventListener('DOMContentLoaded', function() {
-  const toggleBtn = document.querySelector('.toggle-users-btn');
-  const overlay = document.querySelector('.mobile-overlay');
+  const menuBtn = document.getElementById('menuBtn');
+  const closeSidebar = document.getElementById('closeSidebar');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('mobileOverlay');
   
-  toggleBtn.addEventListener('click', toggleUsersList);
-  overlay.addEventListener('click', toggleUsersList);
+  function toggleSidebar() {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('visible');
+  }
+  
+  menuBtn?.addEventListener('click', toggleSidebar);
+  closeSidebar?.addEventListener('click', toggleSidebar);
+  overlay?.addEventListener('click', toggleSidebar);
 
   // Hide users list by default on mobile
   if (window.innerWidth <= 768) {
-    document.body.classList.remove('show-users');
+    sidebar.classList.remove('open');
+    overlay.classList.remove('visible');
+  }
+
+  // 其他按钮事件
+  document.querySelector('.file-btn')?.addEventListener('click', async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.onchange = async (e) => {
+      if (e.target.files.length > 0) {
+        await sendFile(e.target.files[0]);
+      }
+    };
+    input.click();
+  });
+
+  document.querySelector('.send-btn')?.addEventListener('click', () => {
+    const messageInput = document.getElementById('messageInput');
+    if (messageInput && messageInput.value.trim()) {
+      sendMessage();
+    }
+  });
+
+  const messageInput = document.getElementById('messageInput');
+  if (messageInput) {
+    messageInput.addEventListener('input', function() {
+      this.style.height = '36px';
+      const newHeight = Math.min(this.scrollHeight, 150);
+      this.style.height = newHeight + 'px';
+      this.style.overflowY = this.scrollHeight > 150 ? 'auto' : 'hidden';
+    });
+  }
+
+  document.querySelector('.nickname-btn')?.addEventListener('click', showNicknameModal);
+  document.querySelector('.create-room-btn')?.addEventListener('click', showCreateRoomModal);
+
+  const themeToggle = document.getElementById('themeToggle');
+  if (themeToggle) {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+    themeToggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const isDark = current === 'dark' || (!current && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const next = isDark ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    });
   }
 
   // 添加粘贴事件监听
@@ -779,3 +878,100 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+function showCreateRoomModal() {
+  const modal = document.getElementById('createRoomModal');
+  const result = document.getElementById('createRoomResult');
+  if (!modal || !result) return;
+  result.style.display = 'none';
+  const roomIdInput = document.getElementById('newRoomIdInput');
+  if (roomIdInput) roomIdInput.value = '';
+  const pwdInput = document.getElementById('newRoomPwdInput');
+  if (pwdInput) pwdInput.value = '';
+  const pwdConfirmInput = document.getElementById('newRoomPwdConfirmInput');
+  if (pwdConfirmInput) pwdConfirmInput.value = '';
+  modal.style.display = 'block';
+  if (roomIdInput) setTimeout(() => roomIdInput.focus(), 0);
+}
+
+function closeCreateRoomModal() {
+  document.getElementById('createRoomModal').style.display = 'none';
+}
+
+function submitCreateRoom() {
+  const roomId = document.getElementById('newRoomIdInput').value.trim();
+  const pwd = document.getElementById('newRoomPwdInput').value;
+  const pwdConfirm = document.getElementById('newRoomPwdConfirmInput').value;
+
+  if (!roomId || roomId.length < 2 || roomId.length > 32) {
+    alert('房间号长度需在2-32个字符之间');
+    return;
+  }
+  if (!pwd) {
+    alert('请输入密码');
+    return;
+  }
+  if (pwd !== pwdConfirm) {
+    alert('两次输入的密码不一致');
+    return;
+  }
+
+  signalingServer.send(JSON.stringify({
+    uid: me.id,
+    targetId: me.id,
+    type: '9005',
+    data: { roomId, pwd: MD5(pwd) }
+  }));
+}
+
+function handleCreateRoomResult(data) {
+  if (data.success) {
+    const roomUrl = `${window.location.origin}/${data.roomId}`;
+    // 创建成功后关闭弹窗
+    closeCreateRoomModal();
+    addChatItem('system', `系统消息：房间创建成功 <a href="${roomUrl}" target="_blank">${roomUrl}</a>`, true);
+  } else {
+    // 失败时继续显示弹窗并提示
+    const result = document.getElementById('createRoomResult');
+    if (result) {
+      result.querySelector('.result-label').textContent = data.message || '创建失败';
+      result.querySelector('.result-label').style.color = '#ef4444';
+      result.style.background = 'rgba(239, 68, 68, 0.1)';
+      result.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+      result.style.display = 'block';
+    } else {
+      alert(data.message || '创建失败');
+    }
+  }
+}
+
+function copyRoomUrl() {
+  const url = document.querySelector('#createRoomResult .result-url').textContent;
+  const btn = document.querySelector('.copy-url-btn');
+  
+  function copySuccess() {
+    btn.classList.add('success');
+    const originalIcon = btn.innerHTML;
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    `;
+    setTimeout(() => {
+      btn.classList.remove('success');
+      btn.innerHTML = originalIcon;
+    }, 2000);
+  }
+
+  try {
+    navigator.clipboard.writeText(url).then(copySuccess);
+  } catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = url;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    copySuccess();
+  }
+}
